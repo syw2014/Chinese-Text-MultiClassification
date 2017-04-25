@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[13]:
+# In[10]:
 
 #!/usr/bin/env python
 
@@ -29,12 +29,34 @@ def load_stopwords(filename):
         print("stop words loaded , total number %d", len(stop_words))
     return stop_words
     
+def is_need_del(term):
+    """To check the term is needed remove"""
+    term = term.strip()
+    # rule1, length <1 or length > 30
+    if len(term) <= 1 or len(term) >= 30:
+        return True
+    # rule2, startswith or endswith '_'
+    if term.startswith('_') or term.endswith('_'):
+        return True
+    # rule3, startswith '&'
+    if term.startswith('&'):
+        return True
+    # rule4, isdigit
+    if term.isdigit():
+        return True
+    
+    return False
+    
+    
 
 # step 1, generate feature words
-def gen_feature_words(data, topk=10000):
+def gen_feature_words(data, stopwords, topk=10000):
     if len(data) == 0:
         print("Require a non-empty file, but found %s", data)
         sys.exit(-1)
+    
+    # load stop words
+    stop_words = load_stopwords(stopwords)
     
     # aggerate trainning samples by key, key : label_id, value: training samples
     label_samples = {}
@@ -73,7 +95,7 @@ def gen_feature_words(data, topk=10000):
         label_sample_weight[k] = (max_label_num) / (v + 1.0)
 
     # select feature words for every label based on term frequency
-    k_words = 100
+    k_words = 200
     vocab = {} # key: label id, val : feature words
     for label, samples in label_samples.items():
         token_tf = {}
@@ -81,11 +103,14 @@ def gen_feature_words(data, topk=10000):
             txt = txt.strip()
             if len(txt) == 0:
                 continue
-            cxt = txt.split(" ")
+            # convert all letter to upper
+            cxt = txt.upper().split(" ")
             # add token to token_tf
             for tok in cxt:
-                if len(tok) < 1:
+                # 
+                if tok in stop_words:
                     continue
+                
                 if token_tf.has_key(tok):
                     token_tf[tok] += 1  # tf + 1
                 else:
@@ -131,11 +156,65 @@ def gen_feature_words(data, topk=10000):
             ofs.write('\n')
             
     return dict(zip(features, weights))
+        
+# step 2, vectorize training sample based on bag of words model, return training data vector
+def sample_vectorize(vocab, sample_file):
     
+    # check samples and gennerated vocabulary
+    if len(vocab) == 0 or len(sample_file) == 0:
+        print("Error: require no-empty vocba and sample file")
     
-            
+    # loop samples and convert text to vector
+    with open(sample_file, 'r') as ifs:
+        # get the size of training data
+        num_train = len(ifs.readlines())
+        # construct training data array: N X M, N is the number of training data, M is the dimension of every point
+        train_data = np.zeros((num_train, len(vocab)))
+        train_label = np.zeros(num_train)
+        # loop samples and process
+        j = 0  # loop variable for samples
+        for line in ifs.readlines():
+            # require j < number of training data
+            if j >= num_train :
+                break
+            line = line.strip()
+            cxt = line.split('\t')
+            if len(cxt) < 3:
+                continue
+            label = int(cxt[0]) # extract label
+            tokens = cxt[1].strip()
+            # TODO: remove sample length < 3
+            # calculate term frequency
+            term_tf = {}
+            for tok in tokens:
+                if term_tf.has_key(tok.strip()):
+                    # frequency + 1
+                    term_tf[tok] += 1
+                else:
+                    term_tf[tok.strip()] = 1
+            vec = np.zeros(len(vocab))
+            i = 0
+            for word, weight in vocab.items():
+                # require i < the number of feature
+                if i >= len(vocab):
+                    break
+                if word in term_tf:
+                    vec[i] = term_tf[word] * weight
+                    i+= 1
+                else:
+                    vec[i] = 0
+                    i += 1
+            # store every data point 
+            train_data[j, :] = vec
+            train_label[j] = label
+            j += 1
+        
+        # final 
+    print("Vectorization completed, training data shape: ", train_data.shape)
+    print("Vectorization completed, training label shape: ", train_label.shape)
+    return train_data, train_label
+
     
-# step 2, vectorize training sample
 # step 3, training classifier
 # step 4, predict with probability
 
@@ -144,8 +223,9 @@ if __name__ == "__main__":
     stopwords_file = "stopwords.txt"
     stop_words = load_stopwords(stopwords_file)
     
-    train_sample = "train_test.txt"
-    gen_feature_words(train_sample, 20000)
+    train_sample = "train_2w.txt"
+    vocab = gen_feature_words(train_sample,stopwords_file , 20000)
+    sample_vectorize(vocab, train_sample)
 
 
 # In[ ]:
