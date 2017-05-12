@@ -1,18 +1,15 @@
-
-# coding: utf-8
-
-# In[10]:
-
 #!/usr/bin/env python
-
+# -*- encoding: utf-8 -*-
 # Author : jerry.Shi
 # Description:
 #      A multi-class classification  based on linear svm, it can be uesed in the produce environment.
 
+from __future__ import division
 import sys
 import numpy as np
 import math
-from __future__ import division
+import scipy
+from tqdm import *
 
 # step 0, load filter words for feature generation 
 def load_stopwords(filename):
@@ -62,7 +59,7 @@ def gen_feature_words(data, stopwords, topk=10000):
     label_samples = {}
     total_sample_size = 0
     with open(data, 'r') as ifs:
-        for line in ifs.readlines():
+        for line in tqdm(ifs.readlines()):
             line = line.strip()
             cxt = line.split("\t")
             if len(cxt) !=3 :
@@ -107,7 +104,6 @@ def gen_feature_words(data, stopwords, topk=10000):
             cxt = txt.upper().split(" ")
             # add token to token_tf
             for tok in cxt:
-                # 
                 if tok in stop_words:
                     continue
                 
@@ -116,11 +112,15 @@ def gen_feature_words(data, stopwords, topk=10000):
                 else:
                     token_tf[tok] = 1
         # sort by tf 
-        token_tf = dict(sorted(token_tf.iteritems(), key = lambda d:d[1], reverse=True))
-        # select k words as feature 
-        feature_words = token_tf.keys()[: k_words]
+        token_tf = sorted(token_tf.iteritems(), key = lambda d:d[1], reverse=True)
+        # select k words as feature
+        feature_words = []
+        for i in range(len(token_tf)):
+            if i >= k_words:
+                break
+            feature_words.append(token_tf[i][0])
         
-        # insert label feature words into global vocabulary
+        # insert label feature words list into global vocabulary
         vocab[label] = feature_words
     
     # select global feature based on inverse label frequency
@@ -128,10 +128,9 @@ def gen_feature_words(data, stopwords, topk=10000):
     words = vocab.values()
     label_size = len(vocab) # label number
     for label, tokens in vocab.items():
-
         for tok in tokens:
             df = 0
-            i = 0
+            # calculate document frequency
             for i in range(len(words)):
                 if tok in words[i]:
                     df += 1
@@ -144,9 +143,12 @@ def gen_feature_words(data, stopwords, topk=10000):
     
     # select topk term as global feature
     featue_size = 20000
-    global_features = dict(sorted(global_features.iteritems(), key= lambda d:d[1], reverse=True))
-    features = global_features.keys()[:featue_size]
-    weights = global_features.values()[:featue_size]
+    global_features = sorted(global_features.iteritems(), key= lambda d:d[1], reverse=True)
+    features = []
+    weights = []
+    for idx in xrange(len(global_features)):
+        features.append(global_features[idx][0])
+        weights.append(global_features[idx][1])
     print("global feature generation completed, total size: %d") % (len(features))
     # final global features
     tmp = dict(zip(features, weights))
@@ -158,22 +160,21 @@ def gen_feature_words(data, stopwords, topk=10000):
     return dict(zip(features, weights))
         
 # step 2, vectorize training sample based on bag of words model, return training data vector
-def sample_vectorize(vocab, sample_file):
-    
+def sample_vectorize(vocab, sample_file): 
     # check samples and gennerated vocabulary
     if len(vocab) == 0 or len(sample_file) == 0:
         print("Error: require no-empty vocba and sample file")
-    
     # loop samples and convert text to vector
     with open(sample_file, 'r') as ifs:
         # get the size of training data
         num_train = len(ifs.readlines())
+        print("Debug: num_train-> %d, vocab_size->%d" %(num_train,  len(vocab)))
         # construct training data array: N X M, N is the number of training data, M is the dimension of every point
         train_data = np.zeros((num_train, len(vocab)))
         train_label = np.zeros(num_train)
         # loop samples and process
         j = 0  # loop variable for samples
-        for line in ifs.readlines():
+        for line in tqdm(ifs.readlines()):
             # require j < number of training data
             if j >= num_train :
                 break
@@ -220,15 +221,10 @@ def sample_vectorize(vocab, sample_file):
 
 # main 
 if __name__ == "__main__":
-    stopwords_file = "stopwords.txt"
+    stopwords_file = "/data/research/data/dict/stopwords.txt"
     stop_words = load_stopwords(stopwords_file)
     
-    train_sample = "train_2w.txt"
-    vocab = gen_feature_words(train_sample,stopwords_file , 20000)
+    train_sample = "/data/research/data/cn_classify/train_sample_2w.txt"
+    vocab = gen_feature_words(train_sample,stopwords_file , 10000)
     sample_vectorize(vocab, train_sample)
-
-
-# In[ ]:
-
-
 
