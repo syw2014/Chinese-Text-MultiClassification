@@ -1,5 +1,6 @@
 ## project config
 .idea/
-./src/dl/*.pyc
-./src/ml/*.pyc
-./src/test/*.pyc
+src/dl/*.pyc
+src/ml/*.pyc
+src/test/*.pyc
+result/*
