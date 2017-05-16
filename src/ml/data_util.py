@@ -19,8 +19,32 @@ import numpy as np
 import math, scipy, time
 from tqdm import *
 
-class DataUtil(object):
 
+def is_need_delete(term):
+    """Check term is satisfy delete conditions.
+    term: input keywords
+    """
+    # remove white space in the front and back
+    term = term.rstrip().lstrip()
+
+    # rule1, length <= 1 or length > 30
+    lenth = len(term)
+    if lenth <= 1 or lenth > 30:
+        return True
+    # rule2, is digital
+    if term.isdigit():
+        return True
+
+    # rule3, startswith or endswith '_'
+    if term.startswith('_') or term.endswith('_'):
+        return True
+
+    # rule4, startswith '&'
+    if term.startswith('&'):
+        return True
+    return False
+
+class DataUtil(object):
     def __init__(self, keywords_num, feature_num, one_hot=True):
         """Construct a DataSet.
         keywords_num: the number of keywords in each label
@@ -29,11 +53,11 @@ class DataUtil(object):
         """
         self.keywords_num = keywords_num
         self.feature_num = feature_num
-        self.stopwords = None          # stop words set
-        self._labels = None               # all the labels appears in corpus
-        self._labels_keywords = None        # keywords in each label, key is label, value is keywords list
-        self._feature_weight = None        # global feature weight for the whole corpus
-    
+        self.stopwords = set()  # stop words set
+        self._labels = None  # all the labels appears in corpus
+        self._labels_keywords = None  # keywords in each label, key is label, value is keywords list
+        self._feature_weight = None  # global feature weight for the whole corpus
+
     def labels(self):
         """Get all labels appears in dataset."""
         return self._labels
@@ -47,46 +71,24 @@ class DataUtil(object):
         return self._feature_weight
 
     def load_stopwords(self, filename):
-       """Load stop words into 'self.stopwords' set
-       filename: stopwords filename
-       """ 
-       # check file is valid
-       if len(filename) == 0:
-           print("Error: require non-empty stopwords, but found %s" % filename)
-           sys.exit(-1)
-        self.stopwords = set()
+        """Load stop words into 'self.stopwords' set
+        filename: stopwords filename
+        """
+        # check file is valid
+        if len(filename) == 0:
+            print("Error: require non-empty stopwords, but found %s" % filename)
+            sys.exit()
+        self.stopwords = set()  # self.stopwords = ()
         print("Start load stop words...")
+
         with open(filename, 'r') as ifs:
             for line in ifs.readlines():
                 line = line.rstrip().lstrip()
                 self.stopwords.add(line)
         print("Stopwords loaded, total number: %d" % len(self.stopwords))
 
-    def is_need_delete(self, term):
-        """Check term is satisfy delete conditions.
-        term: input keywords
-        """
-        # remove white space in the front and back
-        term = term.rstrip().lstrip()
-
-        # rule1, length <= 1 or length > 30
-        lenth = len(term)
-        if lenth <= 1 or lenth > 30:
-            return True
-        # rule2, is digital
-        if term.isdigit():
-            return True
-
-        # rule3, startswith or endswith '_'
-        if term.startswith('_') or term.endswith('_'):
-            return True
-
-        # rule4, startswith '&'
-        if term.startswith('&'):
-            return True
-        return False
-
     def gen_corpus_features(self, corpus):
+
         """Given a corpus with label samples, select features for input corpus.
         corpus: input corpus, structure should be : 'label_id \t txt', tokens delimiter must be 'space'
         """
@@ -96,6 +98,8 @@ class DataUtil(object):
         # step1, load label data
         label_samples = {}
         sample_num = 0
+        self._labels = set()
+        start_t = time.time()
         with open(corpus, 'r') as ifs:
             for line in ifs.readlines():
                 line = line.rstrip().lstrip()
@@ -112,8 +116,11 @@ class DataUtil(object):
                     label_samples[label_id].append(sample)
                 else:
                     label_samples[label_id] = [sample]
-        print("Load samples completed, label number: %d" % len(label_samples))
+        end_t = time.time()
+        print("Load samples completed, label number: %d, duration: %.3fs" % (len(label_samples), (end_t - start_t)))
 
+        # get all keys in corpus
+        self._labels = label_samples.keys()
         # --------------TODO: data unbalance process ----------------
         # choose weight process to deal unbalance
         # weight = max_label_sample_num / ( label_sample_num + 1.0)
@@ -121,18 +128,20 @@ class DataUtil(object):
         label_sample_num = {}  # sample number of each label
         for k, v in label_samples.items():
             label_sample_num[k] = len(v)
+#            print("Debug -> length: %d" % len(v))
         # get maximum samples number in all labels
         max_label_sample_num = np.array(label_sample_num.values()).max()
         # compute sample weight for each label
         label_sample_w = {}
         for k, v in label_sample_num.items():
             label_sample_w[k] = max_label_sample_num / (v + 1.0)
-        #------------------------------------------------------------
-        
+        # ------------------------------------------------------------
+
         # extract keywords for each labels
-        self._labels_keywords = {}   # key: label_id, val: keyword list
+        start_t = time.time()
+        self._labels_keywords = {}  # key: label_id, val: keyword list
         for label_id, samples in label_samples.items():
-            term_tf = {}    # key: term, val: term frequency
+            term_tf = {}  # key: term, val: term frequency
             for txt in samples:
                 txt = txt.rstrip().lstrip()
                 if len(txt) == 0:
@@ -146,24 +155,26 @@ class DataUtil(object):
                     if is_need_delete(tok):
                         continue
                     if term_tf.has_key(tok):
-                        term_tf[tok] += 1    # frequency + 1
+                        term_tf[tok] += 1  # frequency + 1
                     else:
                         term_tf[tok] = 1
             # sort by term frequency
-            term_tf = sorted(term_tf.iteritems(), key = lambda d:d[1], reverse=True)
+            term_tf = sorted(term_tf.iteritems(), key=lambda d: d[1], reverse=True)
             # select topk words as label keywords
             # TODO: store keywords TF for other tasks
             keywords = [x[0] for x in term_tf][: self.keywords_num]
             # reserve keywords list
             self._labels_keywords[label_id] = keywords
-            print("label keywords generation completed!")
+        end_t = time.time()
+        print("Label keywords generation completed, duration: %.3fs" % (end_t - start_t))
 
         # generate global features for input corpus
         # In this case, we use IDF as the selection rules to select feature
         self._feature_weight = {}
-        docs = self._labels_keywords.values() # get all keywords
-        label_num = len(self._labels_keywords) # total doc number
+        docs = self._labels_keywords.values()  # get all keywords
+        label_num = len(self._labels_keywords)  # total doc number
         feature_w = {}
+        start_t = time.time()
         for _, tokens in self._labels_keywords.items():
             for word in tokens:
                 df = 0
@@ -171,20 +182,22 @@ class DataUtil(object):
                 for i in xrange(len(docs)):
                     if word in docs[i]:
                         df += 1
-            
-                if feature_w.has_key(word):
-                    continue
-                else:
-                    feature_w[word] = math.log(label_num / (df + 1.0))
-                    # TODO, use TFIDF as feature weight
+
+            if feature_w.has_key(word):
+                continue
+            else:
+                feature_w[word] = math.log(label_num / (df + 1.0))
+                # TODO, use TFIDF as feature weight
         # select topk features
-        feature_w = sorted(feature_w.iteritems(), key = lambda d:d[1], reverse=True)
+        feature_w = sorted(feature_w.iteritems(), key=lambda d: d[1], reverse=True)
         feats = [x[0] for x in feature_w][: self.feature_num]
         weis = [x[1] for x in feature_w][: self.feature_num]
         self._feature_weight = zip(feats, weis)
-        print("corpus feature generation completed!")
+        end_t = time.time()
+        print("Corpus features generation completed, duration: %.3fs" % (end_t - start_t))
 
     def vectorize(self, sample, sparse=True):
+
         """Text string one-hot encoding, convert a text into a numeric vector for ML/DL model training.
         sample: input corpus, structure should be, 'label_id \t txt', tokens delimiter must be 'space'
         return: int(label),vector
@@ -195,7 +208,7 @@ class DataUtil(object):
             sys.exit(-1)
         label_id = int(tmp[0].strip())
         tokens = tmp[1].rstrip().split(" ")
-        
+
         # compute term frequency
         term_tf = {}
         for tok in tokens:
@@ -207,7 +220,7 @@ class DataUtil(object):
         # extract features and weights
         features = [x[0] for x in self._feature_weight]
         weights = [x[1] for x in self._feature_weight]
-        
+
         # vectorize
         feature_dim = len(self._feature_weight)
         dense_vector = np.zeros(len(feature_dim))
@@ -216,23 +229,12 @@ class DataUtil(object):
             if k in features:
                 idx = features.index(k)
                 wei = weights[idx]
-                if sparse:
-                    sparse_vector[idx] = tf * wei
-                else:
-                    dense_vector[idx] = tf * wei
+            if sparse:
+                sparse_vector[idx] = tf * wei
+            else:
+                dense_vector[idx] = tf * wei
 
         if sparse:
             return label_id, sparse_vector
         else:
-            return label_id, dense_vector
-
-#def next_batch(self, dataset):
-
-def labels(self):
-    return self._labels
-
-def label_keywords(self):
-    return self._labels_keywords
-
-def features(self):
-    return self._feature_weight
+            return label_id, dense_vector  # def next_batch(self, dataset):
