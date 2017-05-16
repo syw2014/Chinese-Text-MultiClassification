@@ -13,7 +13,7 @@ import scipy
 from tqdm import *
 
 # add local path to sys path
-sys.path.append("./")
+sys.path.append("../util/")
 from data_util import *
 
 # step 1, 
@@ -42,3 +42,6 @@ if __name__ == "__main__":
         for x in features:
             ofs3.write(x[0] + '\t' + str(x[1]))
             ofs3.write('\n')
+
+    y_, X = dataUtil.batch_data(train_sample)
+
