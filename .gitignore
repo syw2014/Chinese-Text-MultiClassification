@@ -2,5 +2,6 @@
 .idea/
 src/dl/*.pyc
 src/ml/*.pyc
+src/util/*.pyc
 src/test/*.pyc
 result/*
