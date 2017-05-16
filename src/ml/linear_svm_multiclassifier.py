@@ -10,13 +10,13 @@ import sys
 import numpy as np
 import math
 import scipy
+
 from tqdm import *
+from liblinearutil import *
 
 # add local path to sys path
 sys.path.append("../util/")
 from data_util import *
-
-# step 1, 
 
     
 
@@ -43,5 +43,13 @@ if __name__ == "__main__":
             ofs3.write(x[0] + '\t' + str(x[1]))
             ofs3.write('\n')
 
-    y_, X = dataUtil.batch_data(train_sample)
+    y_, X = dataUtil.batch_data(train_sample, False)
+    
+    print("sample num: %d, label num: %d" % (len(X), len(y_)))
+    # linear model train
+    prob = problem(y_, X)
+#    print X
+    param = parameter('-s 0 -c 4 -B 1')
+    m = train(prob, param)
+    save_model("../../result/model/linear_classify.model", m)
 

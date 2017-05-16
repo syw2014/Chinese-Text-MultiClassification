@@ -236,7 +236,16 @@ class DataUtil(object):
             else:
                 pass
 
+        # if encoding vector is empty, return directly
+        # added the max index into vector
         if sparse:
+            """
+            if len(sparse_vector) == 0:
+                return label_id, sparse_vector
+            midx = len(features) - 1
+            if not sparse_vector.has_key(midx):
+                sparse_vector[midx] = 0.0
+            """
             return label_id, sparse_vector
         else:
             return label_id, dense_vector  
@@ -253,8 +262,11 @@ class DataUtil(object):
         labels = []
         X_vec = []
         with open(data, 'r') as ifs:
-            for line in tqdm(ifs.readlines()):
-                lidx, vec = self.vectorize(line)
+            for line in (ifs.readlines()):
+                #time.sleep(0.01)
+                lidx, vec = self.vectorize(line, sparse)
+                if len(vec) == 0:
+                    continue
                 labels.append(lidx)
                 X_vec.append(vec)
         return labels, X_vec
