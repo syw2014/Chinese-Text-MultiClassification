@@ -230,7 +230,7 @@ class DataUtil(object):
                 idx = features.index(k)
                 wei = weights[idx]
                 if sparse:
-                    sparse_vector[idx] = tf * wei
+                    sparse_vector[idx+1] = tf * wei  # index + 1 to statisfy libsvm data format
                 else:
                     dense_vector[idx] = tf * wei
             else:

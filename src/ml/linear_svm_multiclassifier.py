@@ -31,8 +31,8 @@ if __name__ == "__main__":
     labels = dataUtil.labels()
     label_keywords = dataUtil.label_keywords()
     features = dataUtil.features()
-
-    with open('../../result/label.txt', 'w') as ofs1, open('../../result/label_feature.txt', 'w') as ofs2, open('../../result/features.txt', 'w') as ofs3:
+    dirs = "../../result/data"
+    with open(dirs + '/label.txt', 'w') as ofs1, open(dirs+'/label_feature.txt', 'w') as ofs2, open(dirs+'/features.txt', 'w') as ofs3:
         for x in labels:
             ofs1.write(str(x))
             ofs1.write('\n')
@@ -42,8 +42,8 @@ if __name__ == "__main__":
         for x in features:
             ofs3.write(x[0] + '\t' + str(x[1]))
             ofs3.write('\n')
-
-    y_, X = dataUtil.batch_data(train_sample, False)
+    """ 
+    y_, X = dataUtil.batch_data(train_sample)
     
     print("sample num: %d, label num: %d" % (len(X), len(y_)))
     # linear model train
@@ -52,4 +52,12 @@ if __name__ == "__main__":
     param = parameter('-s 0 -c 4 -B 1')
     m = train(prob, param)
     save_model("../../result/model/linear_classify.model", m)
-
+    
+    """
+    # predict
+    pre_file = "/data/research/data/cn_classify/predict.txt"
+    y_, X = dataUtil.batch_data(pre_file)
+    m = load_model("../../result/model/linear_classify.model")
+    p_label, p_acc, p_val = predict(y_, X, m, '-b 1')
+    ACC, MSE, SCC = evaluations(y_, p_label)
+    
