@@ -223,18 +223,38 @@ class DataUtil(object):
 
         # vectorize
         feature_dim = len(self._feature_weight)
-        dense_vector = np.zeros(len(feature_dim))
+        dense_vector = np.zeros(feature_dim)
         sparse_vector = {}
         for k, tf in term_tf.items():
             if k in features:
                 idx = features.index(k)
                 wei = weights[idx]
-            if sparse:
-                sparse_vector[idx] = tf * wei
+                if sparse:
+                    sparse_vector[idx] = tf * wei
+                else:
+                    dense_vector[idx] = tf * wei
             else:
-                dense_vector[idx] = tf * wei
+                pass
 
         if sparse:
             return label_id, sparse_vector
         else:
-            return label_id, dense_vector  # def next_batch(self, dataset):
+            return label_id, dense_vector  
+
+    def batch_data(self, data, sparse=True):
+        """Batch encoding.
+        data: input file name
+        sparse: specify vector is dense or sparse, default is sparse.
+        return: labels array, size is data size, arrary(dense, element: weight) or dict(sparse, key:index, val: weight)
+        """
+        if len(data) == 0:
+            print("Error: require non-empty data, but found %s" % data)
+            sys.exit(-1)
+        labels = []
+        X_vec = []
+        with open(data, 'r') as ifs:
+            for line in tqdm(ifs.readlines()):
+                lidx, vec = self.vectorize(line)
+                labels.append(lidx)
+                X_vec.append(vec)
+        return labels, X_vec
