@@ -1,8 +1,10 @@
-## Deep Learning & Machine Learning
+## Chinese Text MultiClassification
 
 Description:
-	This is the record of learning DL , which may contains study papers, dl frameworks, and dl algorithms implementation.But firstly , it will be 
-	start with tensorflow.It also will contian the traditional machine learning algorithm tasks like classification, regression, feature engineering etc.
+	This project was created for text classification,as we all know, text classication played an importent role in nlp tasks,so it was worth studying with different
+algorithms,and in this repo we will supply different methods to complete classification,include deep learning and traditional algorithms like svm, naive bayes.
+The main features of this project that we develop a completed framework of classification from data pre-processing,feature selection, model training and predict,
+and model update strategy,so that it can be easily migrated and used.
 
 ### 1. Machine Learning parts
 #### 1.1 document classification
