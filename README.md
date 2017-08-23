@@ -6,15 +6,23 @@ algorithms,and in this repo we will supply different methods to complete classif
 The main features of this project that we develop a completed framework of classification from data pre-processing,feature selection, model training and predict,
 and model update strategy,so that it can be easily migrated and used.
 
-### 1. Machine Learning parts
-#### 1.1 document classification
-#### 1.2 feature selection & extraction
+Table of Contents
+=================
 
+* [Chinese Text MultiClassification]
+    * [Traditional Methods](#traditional-methods)
+        * [Feature Selection && Extraction](#feature-selection-extraction)
+        * [Text Classification](#text-classification)
+    * [Deep Learning Methods](#deep-learning-methods)
+        * [Word Embedding](#word-embedding)
+        * [Text Classification](#text-classification)
 
+## Traditional Methods
+TBD
+### Feature Selection && Extraction
+TBD
 
-### 2. Deep Learning parts
-#### 2.1 word embedding
-#### 2.2 document classification with DL
+## Deep Learning Methods
+### Word Embedding
+### Text Classification
 
-
-### TBD
