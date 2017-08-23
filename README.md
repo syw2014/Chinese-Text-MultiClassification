@@ -35,11 +35,12 @@ methods or algorithms to build a classification system,which can achive the stat
 classification.In this post I had create a vanillia demo based on [pyfasttext](https://github.com/vrasneur/pyfasttext) a python package of fastText.
 
 ##### Dependent
-    - [pyfasttext], you can install it like
+[pyfasttext](https://github.com/vrasneur/pyfasttext) a python binding for fastText, you can install it like,
 
-    ```bash
-    pip install pyfasttext
-    ```
+```bash
+pip install pyfasttext
+```
+If you have any install problems you push issues [here](https://github.com/vrasneur/pyfasttext/issues)
 
 ##### Enjoy Demo
 ```bash
