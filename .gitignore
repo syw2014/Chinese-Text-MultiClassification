@@ -5,3 +5,4 @@ src/ml/*.pyc
 src/util/*.pyc
 src/test/*.pyc
 result/*
+data/*
