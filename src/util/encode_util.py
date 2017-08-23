@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Author  : Jerry.Shi
-# File    : Normalize.py
+# File    : encode_util.py
 # PythonVersion: python3.5
 # Date    : 2017/5/31 10:31
 # Software: PyCharm Community Edition
