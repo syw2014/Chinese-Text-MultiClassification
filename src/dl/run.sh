@@ -7,7 +7,8 @@
 #########################################################################
 #!/bin/bash
 
-
+# current dir
+curr_dir=`pwd`
 # check data and download
 if [ ! -d "../../data/classify_toy" ]; then
     wget -c --referer=https://pan.baidu.com/s/1c1FVZe4 -O ../../data/data.zip \
@@ -16,4 +17,11 @@ if [ ! -d "../../data/classify_toy" ]; then
     unzip data.zip -d data
     mv data/┐╬═т╤з╧░/github_data/classify_toy/ .
     rm -r data/
+    rm data.zip
 fi
+
+echo "$curr_dir"
+cd $curr_dir
+
+# run classify module
+time python fasttext-demo.py --corpus ../../data/classify_toy --outdir ../../result
