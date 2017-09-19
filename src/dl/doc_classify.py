@@ -24,7 +24,7 @@ def train(train_data, model_name):
 
 
 def batch_predict(test_data, classifier):
-    labels = classifier.predict(test_data)
+    labels = classifier.predict_proba(test_data, k=1)
     return labels
 
 def evaluate(raw_labels, labels, predict):
@@ -35,7 +35,7 @@ def evaluate(raw_labels, labels, predict):
         if len(x) == 0:
             print x,i
             continue
-        preds.append(int((x[0]).encode('utf-8')))
+        preds.append(int((x[0][0]).encode('utf-8')))
     predict = preds
     # calculate sample size of each label
     print predict[:5]
@@ -149,7 +149,7 @@ def main():
         for x in pred_result:
             if len(x[1]) == 0:
                 continue
-            f.write(x[0][0] +  "\t" + x[0][1] +  "\t__label__" + (x[1][0]).encode('utf-8'))
+            f.write(x[0][0] +  "\t" + x[0][1] +  "\t__label__" + (x[1][0][0]).encode('utf-8') + "\t" + str(x[1][0][1]))
             f.write('\n')
             
             #print(x[0][0] +  "\t" + x[0][1] +  "\t__label__" + x[1][0].encode('utf-8'))
