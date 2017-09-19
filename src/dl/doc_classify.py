@@ -27,43 +27,45 @@ def batch_predict(test_data, classifier):
     labels = classifier.predict(test_data)
     return labels
 
-def evaluate(labels, predict):
+def evaluate(raw_labels, labels, predict):
+    assert (len(labels) == len(predict), "Require the same size of test sample")
     # extract labels
     preds = []
-    for x in predict:
+    for i, x in enumerate(predict):
         if len(x) == 0:
-            print x
-        preds.append(int(x[0].encode('utf-8')))
+            print x,i
+            continue
+        preds.append(int((x[0]).encode('utf-8')))
     predict = preds
     # calculate sample size of each label
     print predict[:5]
-    n = len(labels)
-    ids = range(n)
-    
+   
+    # create 
     # create id->label, label->id
-    raw_label = list(set(labels))
-    id_to_label = dict( zip(range(len(raw_label) ), raw_label ))
-    label_to_id = dict( zip(raw_label, range(len(raw_label)) ) )
+    id_to_label = dict( zip(range(len(raw_labels) ), raw_labels ))
+    label_to_id = dict( zip(raw_labels, range(len(raw_labels)) ) )
 
-    # sample-> id, id->sample
-    sample_ids = zip(labels, ids)
-    id_to_sample = dict(zip(ids, labels))
+    # sample-> idx, idx->sample
+    num_samples = len(labels)
+    sample_to_id = dict( zip(labels, range(num_samples)) )
+    id_to_sample = dict( zip( range(num_samples), labels) )
 
-    num_per_label = dict()
-    for x in sample_ids:
-        if x in num_per_label:
-            num_per_label[x[0]].append(x[1])
+
+    sample_per_label = {}
+    for x in id_to_sample.items():
+        if sample_per_label.has_key(x[0]):
+            sample_per_label[x[0]].append(x[1])
         else:
-            num_per_label[x[0]] = [x[1]]
+            sample_per_label[x[0]] = [ x[1] ]
 
     # create confusion matrix
-    cofus_mat = np.zeros((len(raw_label), len(raw_label)), dtype=np.int32)
-    pred_label_ids = zip(predict, ids)
-    for i, x in enumerate(pred_label_ids):
-        true_label_id = id_to_sample[i]
-        label_id = label_to_id[x[0]]
+    cofus_mat = np.zeros((len(raw_labels), len(raw_labels)), dtype=np.int32)
+    for i, x in enumerate(predict):
+        true_label = id_to_sample[i]            # get the truth label
+        true_label_id = label_to_id[true_label] # get true label id
+        label_id = label_to_id[ predict[i] ]    # get predict label idx
         # true sample
-        if true_label_id == x[0]:
+        if true_label == predict[i] :
             cofus_mat[ label_id][label_id] += 1
         else: # false predict
             cofus_mat[ true_label_id][label_id] += 1
@@ -78,7 +80,7 @@ def evaluate(labels, predict):
             p = cofus_mat[i][i] / float(col_sum)
             r = cofus_mat[i][i] / float(row_sum)
             print("Label: {} Precision: {} Recall: {} FB1: {}".format(id_to_label[i], (cofus_mat[i][i])/float(col_sum), \
-                cofus_mat[i][i] / float(row_sum), 2*pr / float(p+r) ))
+                cofus_mat[i][i] / float(row_sum), 2*p*r / float(p+r) ))
 
 def main():
     argv = sys.argv[1:]
@@ -123,10 +125,19 @@ def main():
     # predict
     test_data = [x[1] for x in test_corpus]
     test_labels = [int(x[0].lstrip("__label__")) for x in test_corpus]
+    raw_label = list()
+    with codecs.open(train_data) as f:
+        for line in f.readlines():
+            arr = line.split(' , ')
+            if len(arr) != 2:
+                continue
+            raw_label.append(arr[0])
+    raw_label = [ int(x.lstrip("__label__")) for x in raw_label ]
+    raw_label = list(set(raw_label))
     labels = batch_predict(test_data, classifier)
     print("predict size: {}".format(len(labels)))
     # evaluate
-    evaluate(test_labels, labels)
+    evaluate(raw_label, test_labels, labels)
     # write predict result
     #pred_result = zip(test_corpus, labels)
    # with codecs.open('predict.txt', 'w') as f:
