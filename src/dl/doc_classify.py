@@ -19,7 +19,7 @@ except ImportError:
 
 def train(train_data, model_name):
     classifier = FastText()
-    classifier.supervised(input=train_data, output=model_name)
+    classifier.supervised(input=train_data, output=model_name, lr=0.7)#, epoch=20, lr=0.7)
     return classifier
 
 
@@ -60,13 +60,17 @@ def evaluate(raw_labels, labels, predict):
 
     # create confusion matrix
     cofus_mat = np.zeros((len(raw_labels), len(raw_labels)), dtype=np.int32)
+    num_pos = 0
     for i, x in enumerate(predict):
         true_label = id_to_sample[i]            # get the truth label
+        if predict[i] not in label_to_id or true_label not in label_to_id:
+            continue
         true_label_id = label_to_id[true_label] # get true label id
         label_id = label_to_id[ predict[i] ]    # get predict label idx
         # true sample
         if true_label == predict[i] :
             cofus_mat[ label_id][label_id] += 1
+            num_pos += 1
         else: # false predict
             cofus_mat[ true_label_id][label_id] += 1
 
@@ -75,12 +79,13 @@ def evaluate(raw_labels, labels, predict):
         # numbers of samples in each label, number of predict samples in each label
         row_sum, col_sum = sum(cofus_mat[i]), sum(cofus_mat[c][i] for c in range(len(cofus_mat)))
         if cofus_mat[i][i] == 0:
-            print("Label: {} Precision: {} Recall: {} FB1: {}".format(id_to_label[i], 0., 0., 0.))
+            print("Label: {} Precision: {} Recall: {} FB1: {} test sample number: {}".format(id_to_label[i], 0., 0., 0., row_sum))
         else:
             p = cofus_mat[i][i] / float(col_sum)
             r = cofus_mat[i][i] / float(row_sum)
-            print("Label: {} Precision: {} Recall: {} FB1: {}".format(id_to_label[i], (cofus_mat[i][i])/float(col_sum), \
-                cofus_mat[i][i] / float(row_sum), 2*p*r / float(p+r) ))
+            print("Label: {} Precision: {:.3f} Recall: {:.3f} FB1: {:.3f} test samples number: {}".format(id_to_label[i], (cofus_mat[i][i])/float(col_sum), \
+                cofus_mat[i][i] / float(row_sum), 2*p*r / float(p+r), row_sum ))
+    print("Total accuracy: {:.3f}".format( num_pos/ float(len(predict))))
 
 def main():
     argv = sys.argv[1:]
@@ -139,11 +144,13 @@ def main():
     # evaluate
     evaluate(raw_label, test_labels, labels)
     # write predict result
-    #pred_result = zip(test_corpus, labels)
-   # with codecs.open('predict.txt', 'w') as f:
-   #     for x in pred_result:
-            #f.write(x[0][0] +  "\t" + x[0][1] +  "\t__label__" + x[1].encode('utf-8'))
-            #f.write('\n')
+    pred_result = zip(test_corpus, labels)
+    with codecs.open('predict.txt', 'w') as f:
+        for x in pred_result:
+            if len(x[1]) == 0:
+                continue
+            f.write(x[0][0] +  "\t" + x[0][1] +  "\t__label__" + (x[1][0]).encode('utf-8'))
+            f.write('\n')
             
             #print(x[0][0] +  "\t" + x[0][1] +  "\t__label__" + x[1][0].encode('utf-8'))
     print("Model process completed!")
