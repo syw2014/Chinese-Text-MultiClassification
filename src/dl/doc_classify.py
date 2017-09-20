@@ -38,7 +38,7 @@ def evaluate(raw_labels, labels, predict):
         preds.append(int((x[0][0]).encode('utf-8')))
     predict = preds
     # calculate sample size of each label
-    print predict[:5]
+    print predict[:5], len(predict)
    
     # create 
     # create id->label, label->id
