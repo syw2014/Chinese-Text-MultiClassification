@@ -6,3 +6,4 @@ src/util/*.pyc
 src/test/*.pyc
 result/*
 data/*
+src/dl/*.txt
