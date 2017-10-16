@@ -16,7 +16,9 @@ Table of Contents
     * [Deep Learning Approach](#deep-learning-methods)
         * [Word Embedding](#word-embedding)
         * [Text Classification](#text-classification)
-            * [fastText](fastText)
+            * [fastText](#fastText)
+            * [TextCNN](#testCNN)
+            * [TextRNN](#textCNN)
 
 ## Traditional Approach
 TBD
