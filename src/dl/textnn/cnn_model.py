@@ -21,20 +21,83 @@ class TextCNN(object):
         self.input_x = tf.placeholder(tf.int32, [None, self.config.seq_length], name='input_x')
         self.input_y = tf.placeholder(tf.float32, [None, self.config.num_classes], name='input_y')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
-
+        
+        # keeping track of l2 regularization loss
+        l2_loss = tf.constant(0.0)
         # build cnn model
-        self.build_cnn()
+        #self.build_cnn()
 
+        # embedding layer
+        with tf.device('cpu:/0'), tf.name_scope("embedding"):
+            self.W = tf.Variable(tf.random_uniform([self.config.vocab_size, 
+                self.config.embedding_dim], -1.0, 1.0), name="W")
+            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
+            self.emedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
+        
+        # create convolution + max_pooling layer for each filter size
+        pooled_output = []
+        for i, filter_size in enumerate(self.config.filter_sizes):
+            with tf.name_scope("conv-maxpool-%s" % filter_size):
+                # convolution
+                filter_shape = [filter_size, self.config.embedding_dim, 1, self.config.num_filters]
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+                b = tf.Variable(tf.constant(0.1, shape=[self.config.num_filters]), name="b")
+                conv = tf.nn.conv2d(
+                        self.emedded_chars_expanded,
+                        W,
+                        strides=[1,1,1,1],
+                        padding="VALID",
+                        name="conv")
+                # apply nonlinearity
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+                # maxpooling 
+                pooled = tf.nn.max_pool(
+                        h,
+                        ksize=[1, self.config.seq_length - filter_size+1, 1,1],
+                        kstrides=[1,1,1,1],
+                        padding="VALID",
+                        name="pool")
+                pooled_output.append(pooled)
+        # combine all the pooled features
+        num_filters_total = self.config.num_filters * self.config.num_filters
+        self.h_pool = tf.concat(pooled_outputs, 3)
+        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+
+        # dropout
+        with tf.name_scope("dropout"):
+            self.h_drop = tf.nn.dropout(self.h_pool_flat, self.keep_prob)
+
+        # scores and predictions
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                    "W",
+                    shape=[num_filters_total, self.config.num_classes],
+                    initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(.1), shape=[self.config.num_classes], name="b")
+            l2_loss += tf.nn.l2_loss(W)
+            l2_loss += tf.nn.l2_loss(b)
+            self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+            self.predict_y = tf.argmax(self.scores, 1, name="prediction")
+
+        with tf.name_scope("loss"):
+            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
+            self.loss = tf.reduce_mean(losses) + l2_loss * 0.0
+
+        with tf.name_scope("accuracy"):
+            correct_pred = tf.equal(self.predict_y, tf.argmax(self.input_y, 1))
+            self.accuarcy = tf.reduce_mean(tf.cast(correct_pred, "float"), name="accuracy")
+""" 
     def input_embedding(self):
-        """input sequence embedding."""
+        input sequence embedding.
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
-            embedding = tf.get_variable('embedding',
-                    [self.config.vocab_size, self.config.embedding_dim])
-            _inputs = tf.nn.embedding_lookup(embedding, self.input_x)
+            self.W = tf.Variable('embedding',
+                    tf.random_uniform[self.config.vocab_size, self.config.embedding_dim], -1.0, 1.0)
+            _inputs = tf.nn.embedding_lookup(self.W, self.input_x)
+            _inputs = tf.expand_dims(self._inputs, -1)
         return _inputs
 
     def build_cnn(self):
-        """Build cnn model"""
+        Build cnn model
         embedding_input = self.input_embedding()
 
         # TODO, try 2-dimension conv
@@ -72,6 +135,4 @@ class TextCNN(object):
         with tf.name_scope("accuracy"):
             correct_pred = tf.equal(tf.argmax(self.input_y, 1), self.pred_y)
             self.accuray = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-            
-
-
+"""
