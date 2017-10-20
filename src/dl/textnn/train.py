@@ -11,21 +11,21 @@ from data_utils import *
 import time
 import os
 from datetime import timedelta
+import datetime
 
 FLAGS = tf.app.flags.FLAGS
 tf.flags.DEFINE_string("input_train_data", "../../../data/gene/data/data.train", 
                     "Input training data")
-tf.flags.DEFINE_string("input_dev_data","../../../data/gene/data/data.dev","Input evaluation data")
-tf.flags.DEFINE_string("input_test_data", "../../../data/gene/data/data.dev", "Input text data")
-tf.flags.DEFINE_string("ckpt", "../../../result/textcnn/ckpt", "Training output model dir")
-
+tf.flags.DEFINE_string("input_dev_data","../../../data/gene/data/dev","Input evaluation data")
+tf.flags.DEFINE_string("input_test_data", "../../../data/gene/data/test", "Input text data")
+tf.flags.DEFINE_string("out_dir", "../../../result/textcnn", "Training output model dir")
+tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store")
+tf.flags.DEFINE_integer("checkpoint_every", 100, "Number of checkpoints to store")
 
 def main(_):
     print("Loading data...")
     start_time = time.time()
     
-    if not os.path.exists(FLAGS.ckpt):
-        os.makedirs(FLAGS.ckpt)
     # process train/dev/test data
     x_train, y_train, x_dev, y_dev, x_test, y_test, words = data_process(FLAGS.input_train_data,
             FLAGS.input_dev_data, FLAGS.input_test_data)
@@ -33,90 +33,106 @@ def main(_):
     # config
     model_config = ModelConfig()
     model_config.vocab_size = len(words) + 1
+    model_config.filter_sizes = list(map(int, model_config.filter_sizes.split(",")))
     model = TextCNN(model_config)
-    
-    # tensorboard_dir
-    tensorboard_dir = '../../../result/tensorboard/textcnn'
-    
     end_time = time.time()
     print("Process data and create model time usage: {}s".format(timedelta(seconds=int(round(end_time - start_time)))))
     
-    saver = tf.train.Saver()
-    if not os.path.exists(FLAGS.ckpt):
-        os.makedirs(FLAGS.ckpt)
-    save_path = os.path.join(FLAGS.ckpt, "best_eval")
-
     # Constructing Tensorflow Graph
     with tf.Session() as sess:
+        model = TextCNN(model_config)
+        # define training procedure
+        global_step = tf.Variable(0, name="global_step", trainable=False)
+        optimizer = tf.train.AdamOptimizer(model_config.learning_rate)
+        grads_and_vars = optimizer.compute_gradients(model.loss)
+        train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+
+        # keep track of gradient values and sparsity
+        grad_summaries = []
+        for g, v in grads_and_vars:
+            if g is not None:
+                grad_hist_summary = tf.summary.histogram("{}/grad/hist".format(v.name), g)
+                sparsity_summary = tf.summary.scalar("{}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
+                grad_summaries.append(grad_hist_summary)
+                grad_summaries.append(sparsity_summary)
+        grad_summaries_merged = tf.summary.merge(grad_summaries)
+
+        # output directory for models and summaries
+        timestamp = str(int(time.time()))
+        out_dir = os.path.abspath(os.path.join(FLAGS.out_dir, "runs", timestamp))
+        print("Writing to {}".format(out_dir))
+
+        # summaries for loss and accuracy
+        loss_summary = tf.summary.scalar("loss", model.loss)
+        acc_summary = tf.summary.scalar("accuracy", model.accuarcy)
+
+        # train summary
+        train_summary_op = tf.summary.merge([loss_summary, acc_summary, grad_summaries_merged])
+        train_summary_dir = os.path.join(FLAGS.out_dir, "summaries", "train")
+        train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
+
+        # dev summary
+        dev_summary_op = tf.summary.merge([loss_summary, acc_summary])
+        dev_summary_dir = os.path.join(FLAGS.out_dir, "summaries", "dev")
+        dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
+
+        # checkpoint
+        ckpt_dir = os.path.abspath(os.path.join(FLAGS.out_dir, "ckpt"))
+        ckpt_prefix = os.path.join(ckpt_dir, "model")
+        if not os.path.exists(ckpt_dir):
+            os.makedirs(ckpt_dir)
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
+
+
+        # initialize all variables
         sess.run(tf.global_variables_initializer())
 
-        # config tensorboard
-        tf.summary.scalar("loss", model.loss)
-        tf.summary.scalar("accuracy", model.accuray)
+        def train_step(x_batch, y_batch):
+            feed_dict = {
+                    model.input_x: x_batch,
+                    model.input_y: y_batch,
+                    model.keep_prob: model_config.dropout_keep_prob}
+            _, step, summaries, loss, accuracy = sess.run(
+                    [train_op, global_step,train_summary_op, model.loss, model.accuarcy], feed_dict)
+            time_str = datetime.datetime.now().isoformat()
+            print("{}: step: {}, loss:{:g}, accuracy:{:}".format(time_str, step, loss, accuracy))
 
-        if not os.path.exists(tensorboard_dir):
-            os.makedirs(tensorboard_dir)
-
-        merged_summary = tf.summary.merge_all()
-        writer = tf.summary.FileWriter(tensorboard_dir)
-        writer.add_graph(sess.graph)
+        def dev_step(x_batch, y_batch, writer=None, test=False):
+            feed_dict = {
+                    model.input_x: x_batch,
+                    model.input_y: y_batch,
+                    model.keep_prob: 1.0}
+            if not test:
+                step, summaries, loss, accuracy = sess.run(
+                        [global_step, dev_summary_op, model.loss, model.accuarcy], feed_dict)
+                time_str = datetime.datetime.now().isoformat()
+                print("{}: step: {}, loss:{:g}, accuracy:{:}".format(time_str, step, loss, accuracy))
+                if writer:
+                    writer.add_summary(summaries, step)
+            else:
+                loss, accuracy = sess.run(
+                        [model.loss, model.accuarcy], feed_dict)
+                time_str = datetime.datetime.now().isoformat()
+                print("{}: step: {}, loss:{:g}, accuracy:{:}".format(time_str, step, loss, accuracy))
 
         # generate batch data
         batch_train= batch_iter(list(zip(x_train, y_train)), model_config.batch_size,
                 model_config.epochs)
-
-
-        def feed_data(batch):
-            """"""
+        for batch in batch_train:
             x_batch, y_batch = zip(*batch)
-            feed_dict = {
-                    model.input_x: x_batch,
-                    model.input_y: y_batch
-                    }
-            return feed_dict, len(x_batch)
+            train_step(x_batch, y_batch)
+            current_step = tf.train.global_step(sess, global_step)
 
-        def evaluate(x, y):
-            batch_eval = batch_iter(list(zip(x,y)), 128, 1)
-
-            total_loss = 0.0
-            total_acc = 0.0
-            cnt = 0.0
-            for batch in batch_eval:
-                feed_dict, cur_batch_len = feed_data(batch)
-                feed_dict[model.keep_prob] = 1.0
-                loss , acc = sess.run([model.loss, model.accuray], feed_dict=feed_dict)
-                cnt += cur_batch_len
-
-            return total_loss / cnt, total_acc / cnt
-
-
-        # start training
-        print("Model training")
-        print_per_batch = model_config.print_per_batch
-        for i, batch in enumerate(batch_train):
-            feed_dict , _ = feed_data(batch)
-            feed_dict[model.keep_prob] = model_config.dropout_keep_prob
-    
-            if i % 5 == 0:
-                s = sess.run(merged_summary, feed_dict=feed_dict)
-                writer.add_summary(s, i)
-
-            if i % print_per_batch == print_per_batch - 1:
-                loss_train, acc_train = sess.run([model.loss, model.accuray], 
-                        feed_dict=feed_dict)
-                loss, acc = evaluate(x_dev, y_dev)
-
-                print("Iter: {0:>6}, Train loss: {1:>6.2}, Train Acc: {2:>7.2%} Val loss: {3:6.2}, Val Acc:{4:7.2%}"
-                        .format(i+1, loss_train, acc_train, loss, acc))
-
-                loss_test, acc_test = evaluate(x_test, y_test)
-                print("Test loss: {0:6.2}, Test Accuracy: {1:>7.2%}".format(loss_test, acc_test))
-            sess.run(model.optimize, feed_dict=feed_dict)
-
-        # model test
-        print("Model evaluation on test set...")
-        loss_test, acc_test = evalute(x_test, y_test)
-        print("Test loss: {0:6.2}, Test Accuracy: {1:>7.2%}".format(loss_test, acc_test))
+            if current_step % model_config.evaluate_every == 0:
+                print("\nEvaluation:")
+                dev_step(x_dev, y_dev, writer=dev_summary_writer)
+                print("")
+                print("\nTest:")
+                dev_step(x_test, y_test,test=True)
+            
+            if current_step % FLAGS.checkpoint_every == 0:
+                path = saver.save(sess, ckpt_prefix, global_step=current_step)
+                print("Saved model ckeckpoint to {}\n".format(path))
 
 
 if __name__ == "__main__":
