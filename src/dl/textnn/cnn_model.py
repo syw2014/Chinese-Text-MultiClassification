@@ -19,7 +19,7 @@ class TextCNN(object):
 
         # placeholder
         self.input_x = tf.placeholder(tf.int32, [None, self.config.seq_length], name='input_x')
-        self.input_y = tf.placeholder(tf.float32, [None, self.config.classes], name='input_y')
+        self.input_y = tf.placeholder(tf.float32, [None, self.config.num_classes], name='input_y')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
         # build cnn model
@@ -35,7 +35,7 @@ class TextCNN(object):
 
     def build_cnn(self):
         """Build cnn model"""
-        embedding_input = input_embedding()
+        embedding_input = self.input_embedding()
 
         # TODO, try 2-dimension conv
         # convoluation layer, here use one dimension conv
@@ -56,10 +56,9 @@ class TextCNN(object):
             fc = tf.nn.relu(fc)
 
             # logits, TODO, use w*x + b
-            self.logits = tf.layer.dense(fc, self.config.num_classes, name='logits')
-
+            self.logits = tf.layers.dense(fc, self.config.num_classes, name='logits')
             # predict
-            self.pred_y = tf.nn.softmax(self.logits)
+            self.pred_y = tf.argmax(tf.nn.softmax(self.logits),1)
         
         # calculate losses
         with tf.name_scope("loss"):
@@ -67,16 +66,11 @@ class TextCNN(object):
                     logits=self.logits,
                     labels=self.input_y)
             self.loss = tf.reduce_mean(cross_entropy)
-        
-        # optimizer
-        with tf.name_scope("optimize"):
-            optimizer = tf.train.AdamOptimizer(
-                    learning_rate=self.config.learning_rate)
-            self.optimize = optimizer.minimize(self.loss)
+            self.optimize = tf.train.AdamOptimizer(learning_rate=self.config.learning_rate).minimize(self.loss)
 
         # accuracy
         with tf.name_scope("accuracy"):
-            correct_pred = tf.equal(tf.argmax(self.input_y, 1), tf.argmax(self.pred_y, 1))
+            correct_pred = tf.equal(tf.argmax(self.input_y, 1), self.pred_y)
             self.accuray = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
             
 

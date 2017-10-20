@@ -7,3 +7,4 @@ src/test/*.pyc
 result/*
 data/*
 src/dl/*.txt
+src/dl/textnn/*.pyc
