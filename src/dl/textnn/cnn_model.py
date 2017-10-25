@@ -81,7 +81,7 @@ class TextCNN(object):
 
         with tf.name_scope("loss"):
             losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
-            self.loss = tf.reduce_mean(losses) + l2_loss * 0.0
+            self.loss = tf.reduce_mean(losses) + l2_loss * 0.0001
 
         with tf.name_scope("accuracy"):
             correct_pred = tf.equal(self.predict_y, tf.argmax(self.input_y, 1))

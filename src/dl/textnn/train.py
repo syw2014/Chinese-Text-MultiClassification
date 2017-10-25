@@ -96,6 +96,7 @@ def main(_):
                     [train_op, global_step,train_summary_op, model.loss, model.accuarcy], feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step: {}, loss:{:g}, accuracy:{:}".format(time_str, step, loss, accuracy))
+            return summaries
 
         def dev_step(x_batch, y_batch, writer=None, test=False):
             feed_dict = {
@@ -113,15 +114,16 @@ def main(_):
                 loss, accuracy = sess.run(
                         [model.loss, model.accuarcy], feed_dict)
                 time_str = datetime.datetime.now().isoformat()
-                print("{}: step: {}, loss:{:g}, accuracy:{:}".format(time_str, step, loss, accuracy))
+                print("{}: loss:{:g}, accuracy:{:}".format(time_str, loss, accuracy))
 
         # generate batch data
         batch_train= batch_iter(list(zip(x_train, y_train)), model_config.batch_size,
                 model_config.epochs)
         for batch in batch_train:
             x_batch, y_batch = zip(*batch)
-            train_step(x_batch, y_batch)
+            summaries = train_step(x_batch, y_batch)
             current_step = tf.train.global_step(sess, global_step)
+            train_summary_writer.add_summary(summaries, current_step)
 
             if current_step % model_config.evaluate_every == 0:
                 print("\nEvaluation:")
